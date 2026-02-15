@@ -19,13 +19,18 @@ import com.app.entites.Order;
 import com.app.entites.OrderItem;
 import com.app.entites.Payment;
 import com.app.entites.Product;
+import com.app.entites.Address;
+import com.app.entites.Membership;
 import com.app.exceptions.APIException;
 import com.app.exceptions.ResourceNotFoundException;
+import com.app.payloads.AddressDTO;
 import com.app.payloads.OrderDTO;
 import com.app.payloads.OrderItemDTO;
 import com.app.payloads.OrderResponse;
+import com.app.repositories.AddressRepo;
 import com.app.repositories.CartItemRepo;
 import com.app.repositories.CartRepo;
+import com.app.repositories.MembershipRepo;
 import com.app.repositories.OrderItemRepo;
 import com.app.repositories.OrderRepo;
 import com.app.repositories.PaymentRepo;
@@ -62,10 +67,24 @@ public class OrderServiceImpl implements OrderService {
 	public CartService cartService;
 
 	@Autowired
+	public AddressRepo addressRepo;
+
+	@Autowired
+	public MembershipRepo membershipRepo;
+
+	@Autowired
 	public ModelMapper modelMapper;
 
+	private Membership validateMembershipCode(String membershipCode) {
+		if (membershipCode == null || membershipCode.isBlank()) {
+			return null;
+		}
+		return membershipRepo.findByMembershipCode(membershipCode)
+				.orElseThrow(() -> new APIException("Invalid membership code: " + membershipCode));
+	}
+
 	@Override
-	public OrderDTO placeOrder(String email, Long cartId, String paymentMethod) {
+	public OrderDTO placeOrder(String email, Long cartId, String paymentMethod, String membershipCode) {
 
 		Cart cart = cartRepo.findCartByEmailAndCartId(email, cartId);
 
@@ -73,12 +92,12 @@ public class OrderServiceImpl implements OrderService {
 			throw new ResourceNotFoundException("Cart", "cartId", cartId);
 		}
 
+		Membership membership = validateMembershipCode(membershipCode);
+
 		Order order = new Order();
 
 		order.setEmail(email);
 		order.setOrderDate(LocalDate.now());
-
-		order.setTotalAmount(cart.getTotalPrice());
 		order.setOrderStatus("Order Accepted !");
 
 		Payment payment = new Payment();
@@ -89,8 +108,6 @@ public class OrderServiceImpl implements OrderService {
 
 		order.setPayment(payment);
 
-		Order savedOrder = orderRepo.save(order);
-
 		List<CartItem> cartItems = cart.getCartItems();
 
 		if (cartItems.size() == 0) {
@@ -98,19 +115,33 @@ public class OrderServiceImpl implements OrderService {
 		}
 
 		List<OrderItem> orderItems = new ArrayList<>();
+		double totalAmount = 0.0;
 
 		for (CartItem cartItem : cartItems) {
 			OrderItem orderItem = new OrderItem();
 
 			orderItem.setProduct(cartItem.getProduct());
 			orderItem.setQuantity(cartItem.getQuantity());
-			orderItem.setDiscount(cartItem.getDiscount());
-			orderItem.setOrderedProductPrice(cartItem.getProductPrice());
-			orderItem.setOrder(savedOrder);
 
+			if (membership != null) {
+				double originalPrice = cartItem.getProduct().getPrice();
+				double memberDiscountedPrice = originalPrice - (originalPrice * membership.getDiscountPercentage() / 100.0);
+				orderItem.setOrderedProductPrice(memberDiscountedPrice);
+				orderItem.setDiscount(membership.getDiscountPercentage());
+			} else {
+				orderItem.setOrderedProductPrice(cartItem.getProductPrice());
+				orderItem.setDiscount(cartItem.getDiscount());
+			}
+
+			totalAmount += orderItem.getOrderedProductPrice() * orderItem.getQuantity();
+			orderItem.setOrder(order);
 			orderItems.add(orderItem);
 		}
 
+		order.setTotalAmount(totalAmount);
+		Order savedOrder = orderRepo.save(order);
+
+		orderItems.forEach(item -> item.setOrder(savedOrder));
 		orderItems = orderItemRepo.saveAll(orderItems);
 
 		cart.getCartItems().forEach(item -> {
@@ -124,7 +155,102 @@ public class OrderServiceImpl implements OrderService {
 		});
 
 		OrderDTO orderDTO = modelMapper.map(savedOrder, OrderDTO.class);
-		
+
+		orderItems.forEach(item -> orderDTO.getOrderItems().add(modelMapper.map(item, OrderItemDTO.class)));
+
+		return orderDTO;
+	}
+
+	@Override
+	public OrderDTO placeOrderWithCOD(String email, Long cartId, AddressDTO deliveryAddress, String membershipCode) {
+		if (deliveryAddress == null) {
+			throw new APIException("Delivery address is required for COD payment");
+		}
+
+		Cart cart = cartRepo.findCartByEmailAndCartId(email, cartId);
+
+		if (cart == null) {
+			throw new ResourceNotFoundException("Cart", "cartId", cartId);
+		}
+
+		Membership membership = validateMembershipCode(membershipCode);
+
+		Order order = new Order();
+
+		order.setEmail(email);
+		order.setOrderDate(LocalDate.now());
+		order.setOrderStatus("Order Accepted !");
+
+		Payment payment = new Payment();
+		payment.setOrder(order);
+		payment.setPaymentMethod("Cash On Delivery");
+
+		payment = paymentRepo.save(payment);
+
+		order.setPayment(payment);
+
+		// Save or reuse delivery address
+		Address address = addressRepo.findByCountryAndStateAndCityAndPincodeAndStreetAndBuildingName(
+				deliveryAddress.getCountry(), deliveryAddress.getState(), deliveryAddress.getCity(),
+				deliveryAddress.getPincode(), deliveryAddress.getStreet(), deliveryAddress.getBuildingName());
+
+		if (address == null) {
+			address = new Address(deliveryAddress.getCountry(), deliveryAddress.getState(),
+					deliveryAddress.getCity(), deliveryAddress.getPincode(),
+					deliveryAddress.getStreet(), deliveryAddress.getBuildingName());
+			address = addressRepo.save(address);
+		}
+
+		order.setDeliveryAddress(address);
+
+		List<CartItem> cartItems = cart.getCartItems();
+
+		if (cartItems.size() == 0) {
+			throw new APIException("Cart is empty");
+		}
+
+		List<OrderItem> orderItems = new ArrayList<>();
+		double totalAmount = 0.0;
+
+		for (CartItem cartItem : cartItems) {
+			OrderItem orderItem = new OrderItem();
+
+			orderItem.setProduct(cartItem.getProduct());
+			orderItem.setQuantity(cartItem.getQuantity());
+
+			if (membership != null) {
+				double originalPrice = cartItem.getProduct().getPrice();
+				double memberDiscountedPrice = originalPrice - (originalPrice * membership.getDiscountPercentage() / 100.0);
+				orderItem.setOrderedProductPrice(memberDiscountedPrice);
+				orderItem.setDiscount(membership.getDiscountPercentage());
+			} else {
+				orderItem.setOrderedProductPrice(cartItem.getProductPrice());
+				orderItem.setDiscount(cartItem.getDiscount());
+			}
+
+			totalAmount += orderItem.getOrderedProductPrice() * orderItem.getQuantity();
+			orderItem.setOrder(order);
+			orderItems.add(orderItem);
+		}
+
+		order.setTotalAmount(totalAmount);
+		Order savedOrder = orderRepo.save(order);
+
+		orderItems.forEach(item -> item.setOrder(savedOrder));
+		orderItems = orderItemRepo.saveAll(orderItems);
+
+		cart.getCartItems().forEach(item -> {
+			int quantity = item.getQuantity();
+
+			Product product = item.getProduct();
+
+			cartService.deleteProductFromCart(cartId, item.getProduct().getProductId());
+
+			product.setQuantity(product.getQuantity() - quantity);
+		});
+
+		OrderDTO orderDTO = modelMapper.map(savedOrder, OrderDTO.class);
+
 		orderItems.forEach(item -> orderDTO.getOrderItems().add(modelMapper.map(item, OrderItemDTO.class)));
 
 		return orderDTO;

@@ -7,14 +7,14 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 
 import com.app.entites.Category;
-import com.app.entites.Payment;
+import com.app.entites.Membership;
 import com.app.entites.Product;
 import com.app.entites.Role;
 import com.app.entites.User;
 import com.app.payloads.AddressDTO;
-import com.app.payloads.CartDTO;
 import com.app.payloads.ProductDTO;
 import com.app.payloads.UserDTO;
+import com.app.repositories.MembershipRepo;
 import com.app.repositories.RoleRepo;
 import com.app.repositories.UserRepo;
 import com.app.services.CartService;
@@ -24,8 +24,6 @@ import com.app.services.ProductService;
 import com.app.services.UserService;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
-
-import com.app.repositories.PaymentRepo;
 
 @Configuration
 public class Var1DataSeeding {
@@ -55,7 +53,7 @@ public class Var1DataSeeding {
 	private UserRepo userRepo;
 
 	@Autowired
-	private PaymentRepo paymentRepo;
+	private MembershipRepo membershipRepo;
 
 	@Bean
 	@Order(2)
@@ -64,8 +62,8 @@ public class Var1DataSeeding {
 			seedCategories();
 			seedProducts();
 			seedUsers();
+			seedMemberships();
 			seedCartsAndOrders();
-			seedCODPaymentMethod();
 			System.out.println("Data seeding completed.");
 		};
 	}
@@ -204,6 +202,26 @@ public class Var1DataSeeding {
 		}
 	}
 
+	private void seedMemberships() {
+		try {
+			Membership gold = new Membership();
+			gold.setMembershipCode("GOLD2024");
+			gold.setDiscountPercentage(20.0);
+			membershipRepo.save(gold);
+		} catch (Exception e) {
+			System.out.println("Membership 'GOLD2024' already exists, skipping.");
+		}
+
+		try {
+			Membership silver = new Membership();
+			silver.setMembershipCode("SILVER2024");
+			silver.setDiscountPercentage(10.0);
+			membershipRepo.save(silver);
+		} catch (Exception e) {
+			System.out.println("Membership 'SILVER2024' already exists, skipping.");
+		}
+	}
+
 	private void seedCartsAndOrders() {
 		try {
 			User adminUser = userRepo.findByEmail("admin@mail.com")
@@ -218,7 +236,7 @@ public class Var1DataSeeding {
 			cartService.addProductToCart(adminCartId, laptopResult.getProductId(), 1);
 			cartService.addProductToCart(adminCartId, tshirtResult.getProductId(), 2);
 
-			orderService.placeOrder("admin@mail.com", adminCartId, "Credit Card");
+			orderService.placeOrder("admin@mail.com", adminCartId, "Credit Card", null);
 		} catch (Exception e) {
 			System.out.println("Admin cart/order seeding skipped: " + e.getMessage());
 		}
@@ -236,21 +254,36 @@ public class Var1DataSeeding {
 					.getContent().get(0);
 
 			cartService.addProductToCart(userCartId, phoneResult.getProductId(), 1);
+
+			AddressDTO codAddress = new AddressDTO();
+			codAddress.setStreet("Jalan Sudirman");
+			codAddress.setBuildingName("Gedung Utama");
+			codAddress.setCity("Jakarta");
+			codAddress.setState("DKI Jakarta");
+			codAddress.setCountry("Indonesia");
+			codAddress.setPincode("102340");
+
+			orderService.placeOrderWithCOD("user@mail.com", userCartId, codAddress, null);
+
 			cartService.addProductToCart(userCartId, novelResult.getProductId(), 3);
 			cartService.addProductToCart(userCartId, jeansResult.getProductId(), 1);
 		} catch (Exception e) {
-			System.out.println("User cart seeding skipped: " + e.getMessage());
+			System.out.println("User cart/order seeding skipped: " + e.getMessage());
 		}
-	}
 
-	private void seedCODPaymentMethod() {
 		try {
-			Payment payment = new Payment();
-			payment.setPaymentMethod("Cash on Delivery");
+			User adminUser = userRepo.findByEmail("admin@mail.com")
+					.orElseThrow(() -> new RuntimeException("Admin user not found"));
+			Long adminCartId = adminUser.getCart().getCartId();
 
-			payment = paymentRepo.save(payment);
+			ProductDTO jeansResult = productService.searchProductByKeyword("Jeans", 0, 1, "productId", "asc")
+					.getContent().get(0);
+
+			cartService.addProductToCart(adminCartId, jeansResult.getProductId(), 2);
+
+			orderService.placeOrder("admin@mail.com", adminCartId, "Credit Card", "GOLD2024");
 		} catch (Exception e) {
-			System.out.println("COD payment method seeding skipped: " + e.getMessage());
+			System.out.println("Membership order seeding skipped: " + e.getMessage());
 		}
 	}
 }
