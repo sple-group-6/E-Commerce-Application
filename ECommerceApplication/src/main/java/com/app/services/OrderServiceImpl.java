@@ -30,6 +30,7 @@ import com.app.repositories.OrderItemRepo;
 import com.app.repositories.OrderRepo;
 import com.app.repositories.PaymentRepo;
 import com.app.repositories.UserRepo;
+import com.app.payloads.PaymentDTO;
 
 import jakarta.transaction.Transactional;
 
@@ -68,7 +69,7 @@ public class OrderServiceImpl implements OrderService {
 	private DiscountService discountService;
 
 	@Override
-	public OrderDTO placeOrder(String email, Long cartId, String paymentMethod) {
+	public OrderDTO placeOrder(String email, Long cartId, PaymentDTO paymentDTO) {
 
 		Cart cart = cartRepo.findCartByEmailAndCartId(email, cartId);
 
@@ -103,7 +104,18 @@ public class OrderServiceImpl implements OrderService {
 
 		Payment payment = new Payment();
 		payment.setOrder(order);
-		payment.setPaymentMethod(paymentMethod);
+		payment.setPaymentMethod(paymentDTO.getPaymentMethod());
+
+		if ("Credit Card".equalsIgnoreCase(paymentDTO.getPaymentMethod())) {
+			if (paymentDTO.getCreditCardNumber() == null || paymentDTO.getCreditCardNumber().length() < 16) {
+				throw new APIException("Invalid Credit Card Number");
+			}
+			if (paymentDTO.getCvc() == null || paymentDTO.getCvc().length() != 3) {
+				throw new APIException("Invalid CVC");
+			}
+			payment.setCreditCardNumber(paymentDTO.getCreditCardNumber());
+			payment.setCvc(paymentDTO.getCvc());
+		}
 
 		payment = paymentRepo.save(payment);
 
