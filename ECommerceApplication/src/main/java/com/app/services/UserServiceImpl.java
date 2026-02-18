@@ -67,12 +67,21 @@ public class UserServiceImpl implements UserService {
 			Role role = roleRepo.findById(AppConstants.USER_ID).get();
 			user.getRoles().add(role);
 
-			String country = userDTO.getAddress().getCountry();
-			String state = userDTO.getAddress().getState();
-			String city = userDTO.getAddress().getCity();
-			String pincode = userDTO.getAddress().getPincode();
-			String street = userDTO.getAddress().getStreet();
-			String buildingName = userDTO.getAddress().getBuildingName();
+			String country = "India";
+			String state = "Maharashtra";
+			String city = "Mumbai";
+			String pincode = "400001";
+			String street = "Default Street";
+			String buildingName = "Default Building";
+
+			if (userDTO.getAddress() != null) {
+				country = userDTO.getAddress().getCountry();
+				state = userDTO.getAddress().getState();
+				city = userDTO.getAddress().getCity();
+				pincode = userDTO.getAddress().getPincode();
+				street = userDTO.getAddress().getStreet();
+				buildingName = userDTO.getAddress().getBuildingName();
+			}
 
 			Address address = addressRepo.findByCountryAndStateAndCityAndPincodeAndStreetAndBuildingName(country, state,
 					city, pincode, street, buildingName);
@@ -104,9 +113,9 @@ public class UserServiceImpl implements UserService {
 				: Sort.by(sortBy).descending();
 
 		Pageable pageDetails = PageRequest.of(pageNumber, pageSize, sortByAndOrder);
-		
+
 		Page<User> pageUsers = userRepo.findAll(pageDetails);
-		
+
 		List<User> users = pageUsers.getContent();
 
 		if (users.size() == 0) {
@@ -134,14 +143,14 @@ public class UserServiceImpl implements UserService {
 		}).collect(Collectors.toList());
 
 		UserResponse userResponse = new UserResponse();
-		
+
 		userResponse.setContent(userDTOs);
 		userResponse.setPageNumber(pageUsers.getNumber());
 		userResponse.setPageSize(pageUsers.getSize());
 		userResponse.setTotalElements(pageUsers.getTotalElements());
 		userResponse.setTotalPages(pageUsers.getTotalPages());
 		userResponse.setLastPage(pageUsers.isLast());
-		
+
 		return userResponse;
 	}
 

@@ -36,6 +36,9 @@ public class CartServiceImpl implements CartService {
 	@Autowired
 	private ModelMapper modelMapper;
 
+	@Autowired
+	private DiscountService discountService;
+
 	@Override
 	public CartDTO addProductToCart(Long cartId, Long productId, Integer quantity) {
 
@@ -66,13 +69,16 @@ public class CartServiceImpl implements CartService {
 		newCartItem.setCart(cart);
 		newCartItem.setQuantity(quantity);
 		newCartItem.setDiscount(product.getDiscount());
-		newCartItem.setProductPrice(product.getSpecialPrice());
+
+		double specialPrice = discountService.calculateProductPrice(product);
+		newCartItem.setProductPrice(specialPrice);
 
 		cartItemRepo.save(newCartItem);
 
 		product.setQuantity(product.getQuantity() - quantity);
 
-		cart.setTotalPrice(cart.getTotalPrice() + (product.getSpecialPrice() * quantity));
+		// Recalculate price in case it changed (though for add, it matches above)
+		cart.setTotalPrice(cart.getTotalPrice() + (specialPrice * quantity));
 
 		CartDTO cartDTO = modelMapper.map(cart, CartDTO.class);
 
@@ -117,7 +123,7 @@ public class CartServiceImpl implements CartService {
 		}
 
 		CartDTO cartDTO = modelMapper.map(cart, CartDTO.class);
-		
+
 		List<ProductDTO> products = cart.getCartItems().stream()
 				.map(p -> modelMapper.map(p.getProduct(), ProductDTO.class)).collect(Collectors.toList());
 
@@ -142,7 +148,8 @@ public class CartServiceImpl implements CartService {
 
 		double cartPrice = cart.getTotalPrice() - (cartItem.getProductPrice() * cartItem.getQuantity());
 
-		cartItem.setProductPrice(product.getSpecialPrice());
+		double specialPrice = discountService.calculateProductPrice(product);
+		cartItem.setProductPrice(specialPrice);
 
 		cart.setTotalPrice(cartPrice + (cartItem.getProductPrice() * cartItem.getQuantity()));
 
@@ -176,7 +183,9 @@ public class CartServiceImpl implements CartService {
 
 		product.setQuantity(product.getQuantity() + cartItem.getQuantity() - quantity);
 
-		cartItem.setProductPrice(product.getSpecialPrice());
+		double specialPrice = discountService.calculateProductPrice(product);
+		cartItem.setProductPrice(specialPrice);
+
 		cartItem.setQuantity(quantity);
 		cartItem.setDiscount(product.getDiscount());
 

@@ -64,6 +64,9 @@ public class OrderServiceImpl implements OrderService {
 	@Autowired
 	public ModelMapper modelMapper;
 
+	@Autowired
+	private DiscountService discountService;
+
 	@Override
 	public OrderDTO placeOrder(String email, Long cartId, String paymentMethod) {
 
@@ -78,7 +81,24 @@ public class OrderServiceImpl implements OrderService {
 		order.setEmail(email);
 		order.setOrderDate(LocalDate.now());
 
-		order.setTotalAmount(cart.getTotalPrice());
+		// We need to recalculate total amount because prices might have changed (Store
+		// Discount expiry etc.)
+		// But iterating list twice is inefficient.
+		// Better approach: Calculate items first, then sum up for order total.
+		// However, adhering to existing structure:
+
+		List<CartItem> cartItems = cart.getCartItems();
+
+		if (cartItems.size() == 0) {
+			throw new APIException("Cart is empty");
+		}
+
+		double totalAmount = 0;
+		for (CartItem cartItem : cartItems) {
+			totalAmount += (discountService.calculateProductPrice(cartItem.getProduct()) * cartItem.getQuantity());
+		}
+
+		order.setTotalAmount(totalAmount);
 		order.setOrderStatus("Order Accepted !");
 
 		Payment payment = new Payment();
@@ -91,12 +111,7 @@ public class OrderServiceImpl implements OrderService {
 
 		Order savedOrder = orderRepo.save(order);
 
-		List<CartItem> cartItems = cart.getCartItems();
-
-		if (cartItems.size() == 0) {
-			throw new APIException("Cart is empty");
-		}
-
+		// cartItems is already engaged
 		List<OrderItem> orderItems = new ArrayList<>();
 
 		for (CartItem cartItem : cartItems) {
@@ -105,7 +120,11 @@ public class OrderServiceImpl implements OrderService {
 			orderItem.setProduct(cartItem.getProduct());
 			orderItem.setQuantity(cartItem.getQuantity());
 			orderItem.setDiscount(cartItem.getDiscount());
-			orderItem.setOrderedProductPrice(cartItem.getProductPrice());
+			// Recalculate or trust cart? Plan says recalculate/validate.
+			// However, CartItem already has the snapshot price.
+			// If we want to support "price changes while in cart", we should use
+			// DiscountService here too.
+			orderItem.setOrderedProductPrice(discountService.calculateProductPrice(cartItem.getProduct()));
 			orderItem.setOrder(savedOrder);
 
 			orderItems.add(orderItem);
@@ -124,7 +143,7 @@ public class OrderServiceImpl implements OrderService {
 		});
 
 		OrderDTO orderDTO = modelMapper.map(savedOrder, OrderDTO.class);
-		
+
 		orderItems.forEach(item -> orderDTO.getOrderItems().add(modelMapper.map(item, OrderItemDTO.class)));
 
 		return orderDTO;
@@ -170,20 +189,20 @@ public class OrderServiceImpl implements OrderService {
 
 		List<OrderDTO> orderDTOs = orders.stream().map(order -> modelMapper.map(order, OrderDTO.class))
 				.collect(Collectors.toList());
-		
+
 		if (orderDTOs.size() == 0) {
 			throw new APIException("No orders placed yet by the users");
 		}
 
 		OrderResponse orderResponse = new OrderResponse();
-		
+
 		orderResponse.setContent(orderDTOs);
 		orderResponse.setPageNumber(pageOrders.getNumber());
 		orderResponse.setPageSize(pageOrders.getSize());
 		orderResponse.setTotalElements(pageOrders.getTotalElements());
 		orderResponse.setTotalPages(pageOrders.getTotalPages());
 		orderResponse.setLastPage(pageOrders.isLast());
-		
+
 		return orderResponse;
 	}
 
