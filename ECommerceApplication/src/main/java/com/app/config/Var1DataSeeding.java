@@ -13,6 +13,8 @@ import com.app.entites.Role;
 import com.app.entites.User;
 import com.app.payloads.AddressDTO;
 import com.app.payloads.ProductDTO;
+import com.app.payloads.SellerDTO;
+import com.app.payloads.SellerRequestDTO;
 import com.app.payloads.UserDTO;
 import com.app.payloads.ReviewRequestDTO;
 import com.app.repositories.MembershipRepo;
@@ -23,6 +25,7 @@ import com.app.services.CategoryService;
 import com.app.services.OrderService;
 import com.app.services.ProductService;
 import com.app.services.ReviewService;
+import com.app.services.SellerService;
 import com.app.services.UserService;
 import com.app.services.WishlistService;
 
@@ -53,6 +56,9 @@ public class Var1DataSeeding {
 	private ReviewService reviewService;
 
 	@Autowired
+	private SellerService sellerService;
+
+	@Autowired
 	private PasswordEncoder passwordEncoder;
 
 	@Autowired
@@ -69,8 +75,9 @@ public class Var1DataSeeding {
 	public ApplicationRunner dataSeeder() {
 		return args -> {
 			seedCategories();
-			seedProducts();
 			seedUsers();
+			seedProducts();
+			seedSellers();
 			seedMemberships();
 			seedCartsAndOrders();
 			seedWishlists();
@@ -170,6 +177,71 @@ public class Var1DataSeeding {
 		} catch (Exception e) {
 			System.out.println("Product 'Novel' already exists, skipping.");
 		}
+
+		try {
+			Product headphones = new Product();
+			headphones.setProductName("Wireless Headphones");
+			headphones.setDescription("Noise-cancelling wireless headphones");
+			headphones.setQuantity(20);
+			headphones.setPrice(150.00);
+			headphones.setDiscount(8.0);
+			headphones.setImage("default.png");
+			productService.addProduct(1L, headphones);
+		} catch (Exception e) {
+			System.out.println("Product 'Wireless Headphones' already exists, skipping.");
+		}
+
+		try {
+			Product smartwatch = new Product();
+			smartwatch.setProductName("Smartwatch");
+			smartwatch.setDescription("Fitness tracking smartwatch");
+			smartwatch.setQuantity(15);
+			smartwatch.setPrice(200.00);
+			smartwatch.setDiscount(12.0);
+			smartwatch.setImage("default.png");
+			productService.addProduct(1L, smartwatch);
+		} catch (Exception e) {
+			System.out.println("Product 'Smartwatch' already exists, skipping.");
+		}
+
+		try {
+			Product sneakers = new Product();
+			sneakers.setProductName("Sneakers");
+			sneakers.setDescription("Lightweight sports sneakers");
+			sneakers.setQuantity(40);
+			sneakers.setPrice(80.00);
+			sneakers.setDiscount(10.0);
+			sneakers.setImage("default.png");
+			productService.addProduct(2L, sneakers);
+		} catch (Exception e) {
+			System.out.println("Product 'Sneakers' already exists, skipping.");
+		}
+
+		try {
+			Product jacket = new Product();
+			jacket.setProductName("Winter Jacket");
+			jacket.setDescription("Warm insulated winter jacket");
+			jacket.setQuantity(25);
+			jacket.setPrice(120.00);
+			jacket.setDiscount(15.0);
+			jacket.setImage("default.png");
+			productService.addProduct(2L, jacket);
+		} catch (Exception e) {
+			System.out.println("Product 'Winter Jacket' already exists, skipping.");
+		}
+
+		try {
+			Product textbook = new Product();
+			textbook.setProductName("Science Textbook");
+			textbook.setDescription("Comprehensive science textbook");
+			textbook.setQuantity(60);
+			textbook.setPrice(30.00);
+			textbook.setDiscount(5.0);
+			textbook.setImage("default.png");
+			productService.addProduct(3L, textbook);
+		} catch (Exception e) {
+			System.out.println("Product 'Science Textbook' already exists, skipping.");
+		}
 	}
 
 	private void seedUsers() {
@@ -210,6 +282,19 @@ public class Var1DataSeeding {
 			userService.registerUser(user);
 		} catch (Exception e) {
 			System.out.println("User 'user@mail.com' already exists, skipping.");
+		}
+
+		try {
+			UserDTO seller = new UserDTO();
+			seller.setFirstName("Seller");
+			seller.setLastName("Account");
+			seller.setMobileNumber("1122334455");
+			seller.setEmail("seller@mail.com");
+			seller.setPassword(passwordEncoder.encode("seller123"));
+			seller.setAddress(address);
+			userService.registerUser(seller);
+		} catch (Exception e) {
+			System.out.println("User 'seller@mail.com' already exists, skipping.");
 		}
 	}
 
@@ -330,6 +415,68 @@ public class Var1DataSeeding {
 			reviewService.addReview("user@mail.com", phoneResult.getProductId(), review);
 		} catch (Exception e) {
 			System.out.println("User Smartphone review seeding skipped: " + e.getMessage());
+		}
+	}
+
+	private void seedSellers() {
+		User sellerUser = userRepo.findByEmail("seller@mail.com")
+				.orElseThrow(() -> new RuntimeException("Seller user not found"));
+		Long sellerUserId = sellerUser.getUserId();
+
+		try {
+			SellerRequestDTO techStoreRequest = new SellerRequestDTO();
+			techStoreRequest.setName("TechStore");
+			techStoreRequest.setDescription("Electronics and gadgets retailer");
+			techStoreRequest.setOwnerUserId(sellerUserId);
+			SellerDTO techStore = sellerService.createSeller(techStoreRequest);
+
+			ProductDTO headphonesResult = productService
+					.searchProductByKeyword("Wireless Headphones", 0, 1, "productId", "asc")
+					.getContent().get(0);
+			ProductDTO smartwatchResult = productService
+					.searchProductByKeyword("Smartwatch", 0, 1, "productId", "asc")
+					.getContent().get(0);
+
+			sellerService.assignProduct(techStore.getId(), headphonesResult.getProductId());
+			sellerService.assignProduct(techStore.getId(), smartwatchResult.getProductId());
+		} catch (Exception e) {
+			System.out.println("Seller 'TechStore' seeding skipped: " + e.getMessage());
+		}
+
+		try {
+			SellerRequestDTO fashionHubRequest = new SellerRequestDTO();
+			fashionHubRequest.setName("FashionHub");
+			fashionHubRequest.setDescription("Trendy clothing and apparel");
+			fashionHubRequest.setOwnerUserId(sellerUserId);
+			SellerDTO fashionHub = sellerService.createSeller(fashionHubRequest);
+
+			ProductDTO sneakersResult = productService
+					.searchProductByKeyword("Sneakers", 0, 1, "productId", "asc")
+					.getContent().get(0);
+			ProductDTO jacketResult = productService
+					.searchProductByKeyword("Winter Jacket", 0, 1, "productId", "asc")
+					.getContent().get(0);
+
+			sellerService.assignProduct(fashionHub.getId(), sneakersResult.getProductId());
+			sellerService.assignProduct(fashionHub.getId(), jacketResult.getProductId());
+		} catch (Exception e) {
+			System.out.println("Seller 'FashionHub' seeding skipped: " + e.getMessage());
+		}
+
+		try {
+			SellerRequestDTO bookWorldRequest = new SellerRequestDTO();
+			bookWorldRequest.setName("BookWorld");
+			bookWorldRequest.setDescription("Books and literature store");
+			bookWorldRequest.setOwnerUserId(sellerUserId);
+			SellerDTO bookWorld = sellerService.createSeller(bookWorldRequest);
+
+			ProductDTO textbookResult = productService
+					.searchProductByKeyword("Science Textbook", 0, 1, "productId", "asc")
+					.getContent().get(0);
+
+			sellerService.assignProduct(bookWorld.getId(), textbookResult.getProductId());
+		} catch (Exception e) {
+			System.out.println("Seller 'BookWorld' seeding skipped: " + e.getMessage());
 		}
 	}
 

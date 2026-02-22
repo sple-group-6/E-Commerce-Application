@@ -49,6 +49,10 @@ public class Product {
 	@JoinColumn(name = "category_id")
 	private Category category;
 
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "seller_id")
+	private Seller seller;
+
 	@OneToMany(mappedBy = "product", cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.EAGER)
 	private List<CartItem> products = new ArrayList<>();
 
