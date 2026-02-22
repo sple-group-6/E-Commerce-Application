@@ -14,6 +14,7 @@ import com.app.entites.User;
 import com.app.payloads.AddressDTO;
 import com.app.payloads.ProductDTO;
 import com.app.payloads.UserDTO;
+import com.app.payloads.ReviewRequestDTO;
 import com.app.repositories.MembershipRepo;
 import com.app.repositories.RoleRepo;
 import com.app.repositories.UserRepo;
@@ -21,6 +22,7 @@ import com.app.services.CartService;
 import com.app.services.CategoryService;
 import com.app.services.OrderService;
 import com.app.services.ProductService;
+import com.app.services.ReviewService;
 import com.app.services.UserService;
 import com.app.services.WishlistService;
 
@@ -48,6 +50,9 @@ public class Var1DataSeeding {
 	private WishlistService wishlistService;
 
 	@Autowired
+	private ReviewService reviewService;
+
+	@Autowired
 	private PasswordEncoder passwordEncoder;
 
 	@Autowired
@@ -69,6 +74,7 @@ public class Var1DataSeeding {
 			seedMemberships();
 			seedCartsAndOrders();
 			seedWishlists();
+			seedReviews();
 			System.out.println("Data seeding completed.");
 		};
 	}
@@ -289,6 +295,41 @@ public class Var1DataSeeding {
 			orderService.placeOrder("admin@mail.com", adminCartId, "Credit Card", "GOLD2024");
 		} catch (Exception e) {
 			System.out.println("Membership order seeding skipped: " + e.getMessage());
+		}
+	}
+
+	private void seedReviews() {
+		try {
+			ProductDTO laptopResult = productService.searchProductByKeyword("Laptop", 0, 1, "productId", "asc")
+					.getContent().get(0);
+			ReviewRequestDTO review = new ReviewRequestDTO();
+			review.setStars(5);
+			review.setReviewText("Excellent laptop, very fast and reliable!");
+			reviewService.addReview("admin@mail.com", laptopResult.getProductId(), review);
+		} catch (Exception e) {
+			System.out.println("Admin Laptop review seeding skipped: " + e.getMessage());
+		}
+
+		try {
+			ProductDTO jeansResult = productService.searchProductByKeyword("Jeans", 0, 1, "productId", "asc")
+					.getContent().get(0);
+			ReviewRequestDTO review = new ReviewRequestDTO();
+			review.setStars(4);
+			review.setReviewText("Great fit and comfortable denim jeans.");
+			reviewService.addReview("admin@mail.com", jeansResult.getProductId(), review);
+		} catch (Exception e) {
+			System.out.println("Admin Jeans review seeding skipped: " + e.getMessage());
+		}
+
+		try {
+			ProductDTO phoneResult = productService.searchProductByKeyword("Smartphone", 0, 1, "productId", "asc")
+					.getContent().get(0);
+			ReviewRequestDTO review = new ReviewRequestDTO();
+			review.setStars(4);
+			review.setReviewText("Good smartphone, smooth performance and great camera.");
+			reviewService.addReview("user@mail.com", phoneResult.getProductId(), review);
+		} catch (Exception e) {
+			System.out.println("User Smartphone review seeding skipped: " + e.getMessage());
 		}
 	}
 
