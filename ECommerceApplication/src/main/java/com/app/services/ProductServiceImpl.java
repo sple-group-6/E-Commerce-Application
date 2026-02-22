@@ -50,6 +50,9 @@ public class ProductServiceImpl implements ProductService {
 	@Autowired
 	private ModelMapper modelMapper;
 
+	@Autowired
+	private SellerServiceImpl sellerServiceImpl;
+
 	@Value("${project.image}")
 	private String path;
 
@@ -100,8 +103,7 @@ public class ProductServiceImpl implements ProductService {
 
 		List<Product> products = pageProducts.getContent();
 
-		List<ProductDTO> productDTOs = products.stream().map(product -> modelMapper.map(product, ProductDTO.class))
-				.collect(Collectors.toList());
+		List<ProductDTO> productDTOs = sellerServiceImpl.mapProductsWithSellers(products, modelMapper);
 
 		ProductResponse productResponse = new ProductResponse();
 
@@ -135,8 +137,7 @@ public class ProductServiceImpl implements ProductService {
 			throw new APIException(category.getCategoryName() + " category doesn't contain any products !!!");
 		}
 
-		List<ProductDTO> productDTOs = products.stream().map(p -> modelMapper.map(p, ProductDTO.class))
-				.collect(Collectors.toList());
+		List<ProductDTO> productDTOs = sellerServiceImpl.mapProductsWithSellers(products, modelMapper);
 
 		ProductResponse productResponse = new ProductResponse();
 
@@ -165,8 +166,7 @@ public class ProductServiceImpl implements ProductService {
 			throw new APIException("Products not found with keyword: " + keyword);
 		}
 
-		List<ProductDTO> productDTOs = products.stream().map(p -> modelMapper.map(p, ProductDTO.class))
-				.collect(Collectors.toList());
+		List<ProductDTO> productDTOs = sellerServiceImpl.mapProductsWithSellers(products, modelMapper);
 
 		ProductResponse productResponse = new ProductResponse();
 
