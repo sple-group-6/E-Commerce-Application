@@ -19,6 +19,7 @@ import com.app.entites.Cart;
 import com.app.entites.CartItem;
 import com.app.entites.Role;
 import com.app.entites.User;
+import com.app.entites.Wishlist;
 import com.app.exceptions.APIException;
 import com.app.exceptions.ResourceNotFoundException;
 import com.app.payloads.AddressDTO;
@@ -64,6 +65,10 @@ public class UserServiceImpl implements UserService {
 			user.setCart(cart);
 			cart.setUser(user);
 
+			Wishlist wishlist = new Wishlist();
+			user.setWishlist(wishlist);
+			wishlist.setUser(user);
+
 			Role role = roleRepo.findById(AppConstants.USER_ID).get();
 			user.getRoles().add(role);
 
@@ -104,9 +109,9 @@ public class UserServiceImpl implements UserService {
 				: Sort.by(sortBy).descending();
 
 		Pageable pageDetails = PageRequest.of(pageNumber, pageSize, sortByAndOrder);
-		
+
 		Page<User> pageUsers = userRepo.findAll(pageDetails);
-		
+
 		List<User> users = pageUsers.getContent();
 
 		if (users.size() == 0) {
@@ -134,14 +139,14 @@ public class UserServiceImpl implements UserService {
 		}).collect(Collectors.toList());
 
 		UserResponse userResponse = new UserResponse();
-		
+
 		userResponse.setContent(userDTOs);
 		userResponse.setPageNumber(pageUsers.getNumber());
 		userResponse.setPageSize(pageUsers.getSize());
 		userResponse.setTotalElements(pageUsers.getTotalElements());
 		userResponse.setTotalPages(pageUsers.getTotalPages());
 		userResponse.setLastPage(pageUsers.isLast());
-		
+
 		return userResponse;
 	}
 

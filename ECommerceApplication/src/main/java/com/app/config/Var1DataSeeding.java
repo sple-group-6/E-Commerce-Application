@@ -22,6 +22,7 @@ import com.app.services.CategoryService;
 import com.app.services.OrderService;
 import com.app.services.ProductService;
 import com.app.services.UserService;
+import com.app.services.WishlistService;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -44,6 +45,9 @@ public class Var1DataSeeding {
 	private OrderService orderService;
 
 	@Autowired
+	private WishlistService wishlistService;
+
+	@Autowired
 	private PasswordEncoder passwordEncoder;
 
 	@Autowired
@@ -64,6 +68,7 @@ public class Var1DataSeeding {
 			seedUsers();
 			seedMemberships();
 			seedCartsAndOrders();
+			seedWishlists();
 			System.out.println("Data seeding completed.");
 		};
 	}
@@ -284,6 +289,40 @@ public class Var1DataSeeding {
 			orderService.placeOrder("admin@mail.com", adminCartId, "Credit Card", "GOLD2024");
 		} catch (Exception e) {
 			System.out.println("Membership order seeding skipped: " + e.getMessage());
+		}
+	}
+
+	private void seedWishlists() {
+		try {
+			User regularUser = userRepo.findByEmail("user@mail.com")
+					.orElseThrow(() -> new RuntimeException("Regular user not found"));
+			Long wishlistId = regularUser.getWishlist().getWishlistId();
+
+			ProductDTO laptopResult = productService
+					.searchProductByKeyword("Laptop", 0, 1, "productId", "asc")
+					.getContent().get(0);
+
+			wishlistService.addProductToWishlist(wishlistId, laptopResult.getProductId());
+		} catch (Exception e) {
+			System.out.println("Wishlist seeding skipped: " + e.getMessage());
+		}
+
+		try {
+			User adminUser = userRepo.findByEmail("admin@mail.com")
+					.orElseThrow(() -> new RuntimeException("Admin user not found"));
+			Long wishlistId = adminUser.getWishlist().getWishlistId();
+
+			ProductDTO novelResult = productService
+					.searchProductByKeyword("Novel", 0, 1, "productId", "asc")
+					.getContent().get(0);
+			ProductDTO phoneResult = productService
+					.searchProductByKeyword("Smartphone", 0, 1, "productId", "asc")
+					.getContent().get(0);
+
+			wishlistService.addProductToWishlist(wishlistId, novelResult.getProductId());
+			wishlistService.addProductToWishlist(wishlistId, phoneResult.getProductId());
+		} catch (Exception e) {
+			System.out.println("Admin wishlist seeding skipped: " + e.getMessage());
 		}
 	}
 }
