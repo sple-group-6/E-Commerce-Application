@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.app.config.AppConstants;
+import com.app.exceptions.APIException;
 import com.app.payloads.OrderDTO;
 import com.app.payloads.OrderResponse;
 import com.app.services.OrderService;
@@ -29,8 +30,18 @@ public class OrderController {
 	public OrderService orderService;
 	
 	@PostMapping("/public/users/{email}/carts/{cartId}/payments/{paymentMethod}/order")
-	public ResponseEntity<OrderDTO> orderProducts(@PathVariable String email, @PathVariable Long cartId, @PathVariable String paymentMethod) {
-		OrderDTO order = orderService.placeOrder(email, cartId, paymentMethod);
+	public ResponseEntity<OrderDTO> orderProducts(
+			@PathVariable String email,
+			@PathVariable Long cartId,
+			@PathVariable String paymentMethod,
+			@RequestParam(required = false) Long bankId,
+			@RequestParam(required = false) String discountCode) {
+
+		if ("BANK_TRANSFER".equalsIgnoreCase(paymentMethod) && bankId == null) {
+			throw new APIException("bankId is required when paymentMethod is BANK_TRANSFER");
+		}
+
+		OrderDTO order = orderService.placeOrder(email, cartId, paymentMethod, bankId, discountCode);
 		
 		return new ResponseEntity<OrderDTO>(order, HttpStatus.CREATED);
 	}
